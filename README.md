@@ -1,6 +1,6 @@
 # Python Project Template 2024
 
-![CI](https://github.com/camille-004/python_project/workflows/CI/badge.svg)
+![CI](https://github.com/camille-004/tiny_xla/workflows/CI/badge.svg)
 
 Welcome to the **Python Project Template 2024**. This will help get you started with the most modern Python tools and best practices.
 
