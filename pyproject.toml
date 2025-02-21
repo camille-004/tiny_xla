@@ -1,24 +1,36 @@
 [tool.poetry]
-name = "python-project"
+name = "tiny_xla"
 version = "0.1.0"
 description = ""
 authors = ["camille-004 <dunningcamille@gmail.com>"]
 readme = "README.md"
-packages = [{include = "python_project"}]
+packages = [{include = "tiny_xla"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-pytest = "^8.2.2"
-pytest-mock = "^3.14.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.8"
 mypy = "^1.10.0"
 pre-commit = "^3.7.1"
 
+[tool.poetry.group.test.dependencies]
+pytest = "^8.2.2"
+
 [tool.ruff]
 line-length = 79
 lint.select = ["E", "F", "I", "A", "C"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "benchmarks"]
+python_files = ["test_*.py", "benchmark_*.py"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
 
 [build-system]
 requires = ["poetry-core"]
