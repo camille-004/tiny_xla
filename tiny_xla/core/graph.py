@@ -64,6 +64,8 @@ class Graph:
             self._root_nodes.add(node_id)
         else:
             for input_op in op.inputs:
+                if input_op.id not in self._ops:
+                    self.add_op(input_op)
                 self.add_edge(input_op.id, node_id)
 
         self._leaf_nodes.add(node_id)

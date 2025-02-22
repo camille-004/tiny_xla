@@ -71,7 +71,7 @@ class BufferAllocation:
     @property
     def size(self) -> int:
         """Get buffer size."""
-        return self.buffer.sizes
+        return self.buffer.size
 
     @property
     def alignment(self) -> int:
@@ -89,29 +89,19 @@ class LifetimeAnalysis:
 
     def __init__(self, graph: Graph) -> None:
         self.graph = graph
-        self._node_order: dict[NodeId, int] = {}
-        self._compute_node_order()
-
-    def _compute_node_order(self) -> None:
-        """Compute execution order of nodes."""
-        order = self.graph.topological_sort()
-        self._node_order = {node_id: idx for idx, node_id in enumerate(order)}
 
     def compute_lifetimes(self) -> dict[NodeId, Lifetime]:
-        """Compute buffer lifetimes for all operations."""
-        lifetimes: dict[NodeId, Lifetime] = {}
-
+        order = self.graph.topological_sort()
+        node_order = {node_id: idx for idx, node_id in enumerate(order)}
+        lifetimes = {}
         for node_id, op in self.graph.ops.items():
-            start = self._node_order[node_id]
+            start = node_order[node_id]
             users = self.graph.get_users(node_id)
             end = (
-                max(self._node_order[user_id] for user_id in users)
-                if users
-                else start + 1
+                max((node_order[user_id] for user_id in users), default=start)
+                + 1
             )
-
             lifetimes[node_id] = Lifetime(start, end)
-
         return lifetimes
 
 
@@ -126,65 +116,102 @@ class MemoryPlanner:
         self.strategy = strategy
         self.memory_limit = memory_limit
 
-    def allocate(self, buffers: list[Buffer]) -> list[BufferAllocation]:
-        """Allocate memory for buffers."""
-        if self.strategy == AllocationStrategy.GREEDY:
-            return self._allocate_greedy(buffers)
-        else:
-            return self._allocate_optimal(buffers)
+    def _free_expired_allocations(
+        self, active_allocations: list[tuple[int, int, int]], curr_start: int
+    ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int]]]:
+        """Free allocations whose lifetime has ended.
 
-    def _allocate_greedy(
-        self, buffers: list[Buffer]
-    ) -> list[BufferAllocation]:
-        """Simple first-fit allocation strategy."""
-        allocations: list[BufferAllocation] = []
-        used_regions: list[BufferAllocation] = []
+        Returns a tuple (remaining_active, freed_blocks),
+        where freed_blocks is a list of (offset, size) from allocations
+        that have expired.
+        """
+        remaining = []
+        freed = []
+        for end, offset, size in active_allocations:
+            if end <= curr_start:
+                freed.append((offset, size))
+            else:
+                remaining.append((end, offset, size))
+        return remaining, freed
 
-        for buffer in buffers:
-            offset = 0
-            while True:
-                aligned_offset = (offset + buffer.alignment - 1) & ~(
-                    buffer.alignment - 1
-                )
+    def _select_offset(
+        self, free_blocks: list[tuple[int, int]], bs: int, peak: int
+    ) -> tuple[int, int]:
+        """Select an offset for a buffer of size bs.
 
-                end_offset = aligned_offset + buffer.aligned_size()
-
+        If a free block is available (i.e., its size >= bs), return its
+        offset and leave peak unchanged. Otherwise, use the current peak as
+        the candidate, update peak, and return.
+        """
+        for i, (offset, size) in enumerate(free_blocks):
+            if size >= bs:
+                free_blocks.pop(i)
                 if (
                     self.memory_limit is not None
-                    and end_offset > self.memory_limit
+                    and offset + bs > self.memory_limit
                 ):
                     raise ValidationError(
                         f"Memory limit {self.memory_limit} exceeded"
                     )
+                return offset, peak
+        # No free block available
+        candidate_offset = peak
+        if (
+            self.memory_limit is not None
+            and candidate_offset + bs > self.memory_limit
+        ):
+            raise ValidationError(f"Memory limit {self.memory_limit} exceeded")
+        return candidate_offset, candidate_offset + bs
 
-                overlap = False
-                for used in used_regions:
-                    if (
-                        aligned_offset < used.end_offset
-                        and used.offset < end_offset
-                    ):
-                        overlap = True
-                        offset = used.end_offset
-                        break
-
-                if not overlap:
-                    allocation = BufferAllocation(
-                        offset=aligned_offset, buffer=buffer
-                    )
-                    allocations.append(allocation)
-                    used_regions.append(allocation)
-                    break
-
-        return allocations
-
-    def _allocate_optimal(
-        self, buffers: list[Buffer]
+    def allocate(
+        self, buffers: list[Buffer], lifetimes: list[Lifetime] | None = None
     ) -> list[BufferAllocation]:
-        """Optimal allocation trategy.
+        """Allocate memory for buffers."""
+        if self.strategy != AllocationStrategy.GREEDY:
+            raise NotImplementedError("Only GREEDY strategy is supported.")
 
-        TODO: Implement optimal allocation.
-        """
-        return self._allocate_greedy(buffers)
+        if lifetimes is None:
+            # Every buffer gets offset 0.
+            for buffer in buffers:
+                if (
+                    self.memory_limit is not None
+                    and buffer.aligned_size() > self.memory_limit
+                ):
+                    raise ValidationError(
+                        f"Buffer of size {buffer.aligned_size()} "
+                        f"exceeds memory limit {self.memory_limit}"
+                    )
+            return [
+                BufferAllocation(offset=0, buffer=buffer) for buffer in buffers
+            ]
+
+        # Perform lifetime-based allocation.
+        items: list[tuple[Buffer, Lifetime]] = list(zip(buffers, lifetimes))
+        items.sort(key=lambda x: x[1].start)
+
+        allocations: list[BufferAllocation] = []
+        free_blocks: list[tuple[int, int]] = []
+        active_allocations: list[tuple[int, int, int]] = []
+        peak = 0
+
+        for buffer, lifetime in items:
+            bs = buffer.aligned_size()
+
+            active_allocations, freed = self._free_expired_allocations(
+                active_allocations, lifetime.start
+            )
+            free_blocks.extend(freed)
+
+            candidate_offset, new_peak = self._select_offset(
+                free_blocks, bs, peak
+            )
+            peak = new_peak
+
+            alloc = BufferAllocation(offset=candidate_offset, buffer=buffer)
+            allocations.append(alloc)
+            active_allocations.append((lifetime.end, candidate_offset, bs))
+            active_allocations.sort(key=lambda x: x[0])
+        return allocations
 
 
 def calc_buffer_size(buffer_type: str, shape: tuple[int, ...]) -> int:

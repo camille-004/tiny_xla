@@ -17,7 +17,6 @@ from .types import NodeId, Shape, Tensor
 logger = XLALogger.get_logger(__name__)
 
 T = TypeVar("T", bound="Operation")
-OpBuilder = Callable[..., "Operation"]
 
 
 class OpType(enum.StrEnum):
@@ -47,6 +46,9 @@ class OpMetadata:
     is_constant: bool = False
     required_memory: int | None = False
     compute_cost: int | None = None
+    memory_offset: int | None = None
+    memory_size: int | None = None
+    memory_alignment: int | None = None
 
 
 class OpAttributes(Protocol):
