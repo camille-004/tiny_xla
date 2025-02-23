@@ -94,6 +94,30 @@ class Conv2D(Operation):
         groups: int = 1,
         explicit_padding: tuple[int, int, int, int] | None = None,
     ) -> None:
+        if len(input_op.output_type.shape) != 4:
+            raise ValueError(
+                "Input must be a 4D tensor [batch, height, width, channels]"
+            )
+
+        input_channels = input_op.output_type.shape[3]
+
+        if input_channels % groups != 0:
+            raise ValueError(
+                f"Input channels {input_channels} not divisible by "
+                f"groups {groups}"
+            )
+
+        channels_per_group = input_channels // groups
+        k_h, k_w = kernel_size
+        expected_kernel_shape = (k_h, k_w, channels_per_group, channels_out)
+        actual_kernel_shape = kernel.output_type.shape
+
+        if actual_kernel_shape != expected_kernel_shape:
+            raise ValueError(
+                f"Expected kernel shape {expected_kernel_shape} but got "
+                f"kernel shape {actual_kernel_shape}"
+            )
+
         super().__init__(
             OpType.CONVOLUTION,
             "conv2d",

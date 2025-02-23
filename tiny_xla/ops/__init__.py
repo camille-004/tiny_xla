@@ -41,6 +41,7 @@ from .inputs import (
     placeholder,
     resource,
 )
+from .matrix import MatMul, MatMulAttributes, matmul
 from .nn import (
     Conv2D,
     Conv2DAttributes,
@@ -69,6 +70,16 @@ from .nn_ops import (
     softmax,
     tanh,
 )
+from .primitives import (
+    Im2Col,
+    Im2ColAttributes,
+    ReduceAttributes,
+    ReduceMax,
+    ReduceSum,
+    im2col,
+    reduce_max,
+    reduce_sum,
+)
 
 __all__ = [
     # Types and enums
@@ -88,6 +99,9 @@ __all__ = [
     "BatchNormAttributes",
     "DropoutAttributes",
     "ActivationAttributes",
+    "Im2ColAttributes",
+    "ReduceAttributes",
+    "MatMulAttributes",
     # Operation classes
     "Add",
     "Subtract",
@@ -108,6 +122,10 @@ __all__ = [
     "BatchNorm",
     "Dropout",
     "Activation",
+    "Im2Col",
+    "ReduceMax",
+    "ReduceSum",
+    "MatMul",
     # Helper functions - Arithmetic
     "add",
     "subtract",
@@ -136,4 +154,10 @@ __all__ = [
     "tanh",
     "elu",
     "softmax",
+    # Helper functions - Primitive
+    "im2col",
+    "reduce_max",
+    "reduce_sum",
+    # Helper functions - Matrix
+    "matmul",
 ]

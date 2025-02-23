@@ -66,7 +66,7 @@ class Formatter(logging.Formatter):
         )
 
     def format(self, record: logging.LogRecord) -> str:
-        if not self.show_colors():
+        if not self.show_colors:
             return super().format(record)
 
         color = self.FORMATS.get(record.levelno, LogColor.GREY)

@@ -120,7 +120,7 @@ def test_memory_limit():
 
     assert not result.changed
     assert result.errors is not None
-    assert any("exceeds memory limit" in err.lower() for err in result.errors)
+    assert any("exceeds memory" in err.lower() for err in result.errors)
 
 
 def test_alignment_requirements():

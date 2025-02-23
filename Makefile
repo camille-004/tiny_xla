@@ -7,7 +7,7 @@ lint:
 	poetry run ruff check .
 
 develop:
-	poetry install --with dev,test,benchmark
+	poetry install --with dev,test
 	pip install -e .
 
 format:

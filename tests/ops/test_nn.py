@@ -183,16 +183,21 @@ def test_invalid_conv_shapes():
     invalid_kernel = constant(
         value=kernel_value, shape=kernel_shape, dtype=XLAType.FLOAT32
     )
-    conv = conv2d(
-        input_op=input_op,
-        kernel=invalid_kernel,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        padding="same",
-        channels_out=16,
+
+    with pytest.raises(ValueError) as exc_info:
+        conv2d(
+            input_op=input_op,
+            kernel=invalid_kernel,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="same",
+            channels_out=16,
+        )
+
+    assert (
+        "Expected kernel shape (3, 3, 3, 16) but got "
+        "kernel shape (3, 3, 4, 16)" in str(exc_info.value)
     )
-    with pytest.raises(ValidationError):
-        conv.validate()
 
 
 def test_invalid_pool_parameters(sample_input):
