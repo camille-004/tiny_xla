@@ -73,6 +73,7 @@ from .nn_ops import (
 from .primitives import (
     Im2Col,
     Im2ColAttributes,
+    Reduce,
     ReduceAttributes,
     ReduceMax,
     ReduceSum,
@@ -123,6 +124,7 @@ __all__ = [
     "Dropout",
     "Activation",
     "Im2Col",
+    "Reduce",
     "ReduceMax",
     "ReduceSum",
     "MatMul",
